@@ -39,6 +39,9 @@
 Some handy utility functions used by several classes.
 """
 
+import os
+import sys
+import io
 import subprocess
 import time
 import logging.handlers
@@ -57,6 +60,7 @@ import email.encoders
 import gzip
 import threading
 import locale
+import collections
 from boto.compat import six, StringIO, urllib, encodebytes
 
 from contextlib import contextmanager
@@ -860,9 +864,13 @@ def notify(subject, body=None, html_body=None, to_string=None,
 
 
 def get_utf8_value(value):
-    if not six.PY2 and isinstance(value, bytes):
-        return value
+    # if not six.PY2 and isinstance(value, bytes):
+    #     return value
 
+    if six.PY3:
+        if isinstance(value, bytes):
+            return value.decode('utf-8')
+        return value
     if not isinstance(value, six.string_types):
         value = six.text_type(value).encode('utf-8')
 
@@ -1096,3 +1104,81 @@ def parse_host(hostname):
         return hostname.split(']:', 1)[0].strip('[]')
     else:
         return hostname.split(':', 1)[0]
+
+
+def ttyprint(*objects, **kwargs):
+  """ A Python 2&3 compatible version of the print function.
+
+  The main purpose of this function is to favor binary output
+  over text output.
+
+  Args are the same as documented for the print function in Python2.
+  """
+  kw_params = collections.OrderedDict([('sep', ' '),
+                                       ('end', os.linesep),
+                                       ('file', sys.stdout)])
+  for key, value in kwargs.items():
+    if key not in kw_params:
+      raise TypeError(
+        "'{}' is an invalid keyword argument for this function".format(key))
+    kw_params[key] = value
+  sep, end, file = kw_params.values()
+  if six.PY2:
+    if hasattr(file, 'mode') and 'b' not in file.mode and end == os.linesep:
+      end = b'\n'
+    pref_enc = 'utf-8'
+    if isinstance(sep, unicode):
+      sep = sep.encode(pref_enc)
+    if isinstance(end, unicode):
+      end = end.encode(pref_enc)
+    byte_objects = []
+    for object in objects:
+      if isinstance(object, str):
+        byte_objects.append(object)
+      elif isinstance(object, unicode):
+        byte_objects.append(object.encode(pref_enc))
+      else:
+        byte_objects.append(str(object).encode(pref_enc))
+    data = sep.join(byte_objects)
+    data += end
+    ttywrite(file, data)
+  else:  # PY3
+    pref_enc = locale.getpreferredencoding(False)
+    if isinstance(sep, str):
+      sep = sep.encode(pref_enc)
+    if isinstance(end, str):
+      end = end.encode(pref_enc)
+    byte_objects = []
+    for object in objects:
+      if isinstance(object, bytes):
+        byte_objects.append(object)
+      elif isinstance(object, str):
+        byte_objects.append(object.encode(pref_enc))
+      else:
+        byte_objects.append(str(object).encode(pref_enc))
+    data = sep.join(byte_objects)
+    data += end
+    ttywrite(file, data)
+
+
+def ttywrite(fp, data):
+  if six.PY2:
+    fp.write(data)
+  else:  # PY3
+    if isinstance(data, bytes):
+      if (hasattr(fp, 'mode') and 'b' in fp.mode) or isinstance(fp, io.BytesIO):
+        # data is bytes, and fp is binary
+        fp.write(data)
+      elif hasattr(fp, 'buffer'):
+        # data is bytes, but fp is text - try the underlying buffer
+        fp.buffer.write(data)
+      else:
+        # data is bytes, but fp is text - try to decode bytes
+        fp.write(
+          data.decode(locale.getpreferredencoding(False)))
+    elif 'b' in fp.mode:
+      # data is not bytes, but fp is binary
+      fp.write(data.encode(locale.getpreferredencoding(False)))
+    else:
+      # data is not bytes, and fp is text
+      fp.write(data)

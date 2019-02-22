@@ -29,6 +29,7 @@ import os
 import io
 import re
 
+from boto.compat import six
 from boto.compat import StringIO
 from boto.exception import BotoClientError
 from boto.s3.key import Key as S3Key
@@ -712,7 +713,12 @@ class Key(S3Key):
         self.md5 = None
         self.base64md5 = None
 
-        fp = io.BytesIO(get_utf8_value(s))
+        if six.PY3:
+            if isinstance(s, str):
+                s = s.encode('utf-8')
+            fp = io.BytesIO(s)
+        else:
+            fp = io.BytesIO(get_utf8_value(s))
         r = self.set_contents_from_file(fp, headers, replace, cb, num_cb,
                                         policy, md5,
                                         if_generation=if_generation)

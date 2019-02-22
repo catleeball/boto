@@ -42,6 +42,7 @@ from boto.provider import Provider
 from boto.s3.keyfile import KeyFile
 from boto.s3.user import User
 from boto import UserAgent
+import boto.utils
 from boto.utils import compute_md5, compute_hash
 from boto.utils import find_matching_headers
 from boto.utils import merge_headers_by_name
@@ -1552,7 +1553,7 @@ class Key(object):
             cb(data_len, cb_size)
         try:
             for bytes in self:
-                fp.write(bytes)
+                boto.utils.ttyprint(bytes, file=fp, end='')
                 data_len += len(bytes)
                 for alg in digesters:
                     digesters[alg].update(bytes)
