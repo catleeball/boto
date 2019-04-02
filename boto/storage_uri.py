@@ -225,7 +225,7 @@ class StorageUri(object):
         key = self.get_key(validate, headers)
         self.check_response(key, 'key', self.uri)
         return key.get_contents_as_string(headers, cb, num_cb, torrent,
-                                          version_id)
+                                          version_id).decode()
 
     def acl_class(self):
         conn = self.connect()
