@@ -26,7 +26,7 @@ import warnings
 
 import boto
 
-from boto.compat import expanduser, ConfigParser, NoOptionError, NoSectionError, StringIO
+from boto.compat import expanduser, ConfigParser, NoOptionError, NoSectionError, six, StringIO
 
 
 # By default we use two locations for the boto configurations,
@@ -81,7 +81,23 @@ class Config(object):
         return getattr(self._parser, name)
 
     def has_option(self, *args, **kwargs):
+        """Return True if option exists and is not None or empty
+
+        Note that Python 3.x differs slightly in its ConfigParser.has_option
+        implementation. In 3.x if a string is none or empty, has_option will assume
+        the default value.
+
+        https://docs.python.org/3/library/configparser.html#configparser.ConfigParser.has_option
+        Returns:
+            Boolean, representing if the option is present or not.
+        """
+        if six.PY3:
+            if self._parser.has_option(*args, **kwargs):
+                if self._parser.get(*args, **kwargs) not in ['', None]:
+                    return True
+            return False
         return self._parser.has_option(*args, **kwargs)
+
 
     def load_credential_file(self, path):
         """Load a credential file as is setup like the Java utilities"""
